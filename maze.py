@@ -1,7 +1,7 @@
 # maze.py
 import math
 import pygame
-from constants import TILE_SIZE, HUD_HEIGHT, COLOR_WALL, COLOR_PATH, COLOR_PELLET, COLOR_GHOST_HOUSE, COLOR_GHOST_DOOR
+from constants import TILE_SIZE, HUD_HEIGHT, COLOR_WALL, COLOR_PATH, COLOR_PELLET, COLOR_GHOST_HOUSE, COLOR_GHOST_DOOR, COLOR_POWER_PELLET
 
 # ==============================================================================
 # GRID COORDINATE SYSTEM & PATHFINDING SPECIFICATION
@@ -23,7 +23,7 @@ CLASSIC_MAZE_LAYOUT = [
     "1111111111111111111111111111",
     "1222222222222112222222222221",
     "1211112111112112111112111121",
-    "1211112111112112111112111121",
+    "1411112111112112111112111141",
     "1211112111112112111112111121",
     "1222222222222222222222222221",
     "1211112112111111112112111121",
@@ -42,7 +42,7 @@ CLASSIC_MAZE_LAYOUT = [
     "1111112110111111110112111111",
     "1222222222222112222222222221",
     "1211112111112112111112111121",
-    "1211112111112112111112111121",
+    "1411112111112112111112111141",
     "1222112222222002222222112221",
     "1112112112111111112112112111",
     "1112112112111111112112112111",
@@ -65,7 +65,7 @@ def validate_maze(grid):
         if len(row) != expected_width:
             raise AssertionError(f"Row length mismatch at row index {r_idx}.")
 
-    pellet_positions = [(r, c) for r in range(height) for c in range(expected_width) if grid[r][c] == 2]
+    pellet_positions = [(r, c) for r in range(height) for c in range(expected_width) if grid[r][c] in (2, 4)]
     if pellet_positions:
         start = pellet_positions[0]
         queue = [start]
@@ -281,6 +281,17 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
                 center_x = x + TILE_SIZE // 2
                 center_y = y + TILE_SIZE // 2
                 pygame.draw.circle(screen, COLOR_PELLET, (center_x, center_y), 3)
+
+            elif cell_val == 4:
+                # Power pellet: pulse every ~15 frames (250ms)
+                center_x = x + TILE_SIZE // 2
+                center_y = y + TILE_SIZE // 2
+                pulse = (pygame.time.get_ticks() // 250) % 2 == 0
+                if pulse:
+                    color = COLOR_POWER_PELLET
+                else:
+                    color = (COLOR_POWER_PELLET[0] // 3, COLOR_POWER_PELLET[1] // 3, COLOR_POWER_PELLET[2] // 3)
+                pygame.draw.circle(screen, color, (center_x, center_y), 8)
 
             elif cell_val == 0:
                 if r + 1 < height and grid[r + 1][c] == 3 and c in (13, 14):

@@ -43,3 +43,6 @@ COLOR_GHOST_ORANGE = (255, 184, 81)     # Clyde (Pokey)
 
 # HUD Text
 COLOR_HUD_TEXT = (255, 255, 255)        # Retro Arcade White
+
+# Frightened Ghost Color
+COLOR_FRIGHTENED = (33, 33, 222)        # Retro Dark Blue

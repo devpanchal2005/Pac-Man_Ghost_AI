@@ -239,6 +239,13 @@ class Ghost:
         self.release_delay = release_delay
         self.release_timer = 0
 
+        # Cache walkable tiles for frightened mode random target
+        self.walkable_tiles = []
+        for r in range(self.rows):
+            for c in range(self.cols):
+                if grid[r][c] != 1 and grid[r][c] != 3:
+                    self.walkable_tiles.append((r, c))
+
     def reset(self):
         self.row, self.col = self.start_tile
         self.pixel_x = float(self.col * TILE_SIZE)
@@ -250,6 +257,12 @@ class Ghost:
         self.path = []
         self.recalc_timer = 0
         self.release_timer = 0
+
+    def get_frightened_target(self):
+        import random
+        if self.walkable_tiles:
+            return random.choice(self.walkable_tiles)
+        return (1, 1)
 
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
         """
@@ -265,7 +278,13 @@ class Ghost:
         """
         return []
 
-    def update(self, pacman_pos, pacman_dir="RIGHT", blinky_pos=None):
+    def update(self, pacman_pos, pacman_dir="RIGHT", blinky_pos=None, frightened_timer=0):
+        # Dynamically set speed based on state
+        if self.state == "frightened":
+            self.speed = 1.5
+        else:
+            self.speed = 2.0
+
         # 1. State transition from in_house to exiting after release_delay
         if self.state == "in_house":
             self.release_timer += 1
@@ -275,13 +294,16 @@ class Ghost:
             else:
                 return
             
-        # 2. Recalculate chasing path periodically
-        if self.state == "chasing":
+        # 2. Recalculate chasing or frightened path periodically
+        if self.state in ("chasing", "frightened"):
             self.recalc_timer += 1
             if self.recalc_timer >= 10:
                 self.recalc_timer = 0
                 start_tile = (self.target_row, self.target_col)
-                target_tile = self.get_target_tile(pacman_pos, pacman_dir, blinky_pos)
+                if self.state == "chasing":
+                    target_tile = self.get_target_tile(pacman_pos, pacman_dir, blinky_pos)
+                else: # frightened
+                    target_tile = self.get_frightened_target()
                 new_path = self.get_next_move(self.grid, start_tile, target_tile)
                 if new_path:
                     self.path = new_path
@@ -308,9 +330,12 @@ class Ghost:
             self.col = int(self.pixel_x // TILE_SIZE)
             self.row = int(self.pixel_y // TILE_SIZE)
             
-            # Transition from exiting to chasing once the exit door is reached
+            # Transition from exiting to chasing/frightened once the exit door is reached
             if self.state == "exiting" and (self.row, self.col) == (12, 13):
-                self.state = "chasing"
+                if frightened_timer > 0:
+                    self.state = "frightened"
+                else:
+                    self.state = "chasing"
                 self.path = []
                 self.recalc_timer = 10  # Force immediate path recalculation on next frame
                 
@@ -320,6 +345,9 @@ class Ghost:
                     self.path = a_star((self.row, self.col), (12, 13), self.state, self.grid)
                 elif self.state == "chasing":
                     target_tile = self.get_target_tile(pacman_pos, pacman_dir, blinky_pos)
+                    self.path = self.get_next_move(self.grid, (self.row, self.col), target_tile)
+                elif self.state == "frightened":
+                    target_tile = self.get_frightened_target()
                     self.path = self.get_next_move(self.grid, (self.row, self.col), target_tile)
                     
             # Pop the first element of path (current node)
@@ -370,14 +398,28 @@ class Ghost:
         elif self.pixel_y > dest_pixel_y:
             self.pixel_y = max(self.pixel_y - self.speed, dest_pixel_y)
 
-    def draw(self, surface, y_offset):
+    def draw(self, surface, y_offset, frightened_timer=0):
         # Do not draw if still waiting in house (or draw them stationary)
         # Requirement: "Start inside the ghost house in 'in_house' state... reuse exiting behavior... Render both"
         # We should draw them at their current position, even if in_house.
         center_x = self.pixel_x + TILE_SIZE / 2.0
         center_y = self.pixel_y + TILE_SIZE / 2.0 + y_offset
         radius = TILE_SIZE * 0.42
-        draw_ghost(surface, self.color, (center_x, center_y), radius, self.current_dir)
+        
+        # Determine color
+        draw_color = self.color
+        if self.state == "frightened":
+            if frightened_timer > 0 and frightened_timer <= 120:
+                # Flash between dark blue and white
+                flash = (frightened_timer // 10) % 2 == 0
+                if flash:
+                    draw_color = (255, 255, 255) # White
+                else:
+                    draw_color = (33, 33, 222) # Dark blue
+            else:
+                draw_color = (33, 33, 222) # Dark blue
+                
+        draw_ghost(surface, draw_color, (center_x, center_y), radius, self.current_dir)
 
 class BlinkyGhost(Ghost):
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):

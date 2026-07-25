@@ -4,18 +4,23 @@ import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
     COLOR_HUD_TEXT, HUD_HEIGHT, COLOR_GHOST_RED, COLOR_GHOST_PINK,
-    COLOR_GHOST_CYAN, COLOR_GHOST_ORANGE
+    COLOR_GHOST_CYAN, COLOR_GHOST_ORANGE, COLOR_FRIGHTENED
 )
 from maze import load_maze, render_maze
 from pacman import PacMan
 from ghosts import BlinkyGhost, PinkyGhost, InkyGhost, ClydeGhost, draw_ghost
 
-def render_hud(surface, font, current_score=70, high_score=1920):
+def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
     """
     Renders the retro arcade HUD matching the reference screenshot:
+    - Top-left: Lives count
     - Top-center: HIGH SCORE header, high score number below, current score to the left
     - Top-right: Pause icon (||) and Sound/Speaker icon
     """
+    # 1. Top-Left Lives Display
+    lives_surf = font.render(f"LIVES: {lives}", True, COLOR_HUD_TEXT)
+    surface.blit(lives_surf, (16, 26))
+
     # 2. Top-Center Scores
     # Header: "HIGH SCORE"
     high_score_lbl = font.render("HIGH SCORE", True, COLOR_HUD_TEXT)
@@ -152,6 +157,26 @@ def main():
     
     score = 0
     high_score = 1920
+    lives = 3
+    frightened_timer = 0
+    consecutive_ghosts_eaten = 0
+    life_lost_timer = 0
+    game_state = "PLAYING"
+
+    def reset_game():
+        nonlocal grid, pacman, blinky, pinky, inky, clyde, score, lives, frightened_timer, consecutive_ghosts_eaten, life_lost_timer, game_state
+        grid = load_maze()
+        pacman = PacMan(grid)
+        blinky = BlinkyGhost(grid, COLOR_GHOST_RED, start_tile=(14, 13), release_delay=0)
+        pinky = PinkyGhost(grid, COLOR_GHOST_PINK, start_tile=(14, 12), release_delay=120)
+        inky = InkyGhost(grid, COLOR_GHOST_CYAN, start_tile=(14, 14), release_delay=240)
+        clyde = ClydeGhost(grid, COLOR_GHOST_ORANGE, start_tile=(14, 15), release_delay=360)
+        score = 0
+        lives = 3
+        frightened_timer = 0
+        consecutive_ghosts_eaten = 0
+        life_lost_timer = 0
+        game_state = "PLAYING"
 
     running = True
     panel_open = False
@@ -160,110 +185,157 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left click
-                    mx, my = event.pos
-                    
-                    # Convert to virtual coordinates using aspect scaling
-                    curr_w, curr_h = screen.get_size()
-                    scale = min(curr_w / VIRTUAL_WIDTH, curr_h / VIRTUAL_HEIGHT)
-                    offset_x = (curr_w - max(1, int(VIRTUAL_WIDTH * scale))) // 2
-                    offset_y = (curr_h - max(1, int(VIRTUAL_HEIGHT * scale))) // 2
-                    
-                    vx = (mx - offset_x) / scale
-                    vy = (my - offset_y) / scale
-                    
-                    # Check play/pause button (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30, y: 10 <= vy <= 38)
-                    if (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30) and (10 <= vy <= 38):
+            elif game_state in ("WIN", "GAME_OVER"):
+                if event.type == pygame.KEYDOWN:
+                    reset_game()
+            elif game_state == "PLAYING":
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Left click
+                        mx, my = event.pos
+                        
+                        # Convert to virtual coordinates using aspect scaling
+                        curr_w, curr_h = screen.get_size()
+                        scale = min(curr_w / VIRTUAL_WIDTH, curr_h / VIRTUAL_HEIGHT)
+                        offset_x = (curr_w - max(1, int(VIRTUAL_WIDTH * scale))) // 2
+                        offset_y = (curr_h - max(1, int(VIRTUAL_HEIGHT * scale))) // 2
+                        
+                        vx = (mx - offset_x) / scale
+                        vy = (my - offset_y) / scale
+                        
+                        # Check play/pause button (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30, y: 10 <= vy <= 38)
+                        if (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30) and (10 <= vy <= 38):
+                            panel_open = not panel_open
+                            
+                        # Check row clicks if panel open
+                        elif panel_open:
+                            panel_w = 560
+                            panel_h = 320
+                            panel_x = (VIRTUAL_WIDTH - panel_w) // 2
+                            panel_y = (VIRTUAL_HEIGHT - panel_h) // 2
+                            
+                            if panel_x + 15 <= vx <= panel_x + panel_w - 15:
+                                for idx, name in enumerate(["Blinky", "Pinky", "Inky", "Clyde"]):
+                                    row_y = panel_y + 75 + idx * 55
+                                    if row_y <= vy <= row_y + 48:
+                                        ghost_states[name] = not ghost_states[name]
+                                        if ghost_states[name]:
+                                            if name == "Blinky": blinky.reset()
+                                            elif name == "Pinky": pinky.reset()
+                                            elif name == "Inky": inky.reset()
+                                            elif name == "Clyde": clyde.reset()
+                                            
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
                         panel_open = not panel_open
-                        
-                    # Check row clicks if panel open
+                    
+                    # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
                     elif panel_open:
-                        panel_w = 560
-                        panel_h = 320
-                        panel_x = (VIRTUAL_WIDTH - panel_w) // 2
-                        panel_y = (VIRTUAL_HEIGHT - panel_h) // 2
-                        
-                        if panel_x + 15 <= vx <= panel_x + panel_w - 15:
-                            for idx, name in enumerate(["Blinky", "Pinky", "Inky", "Clyde"]):
-                                row_y = panel_y + 75 + idx * 55
-                                if row_y <= vy <= row_y + 48:
-                                    ghost_states[name] = not ghost_states[name]
-                                    if ghost_states[name]:
-                                        if name == "Blinky": blinky.reset()
-                                        elif name == "Pinky": pinky.reset()
-                                        elif name == "Inky": inky.reset()
-                                        elif name == "Clyde": clyde.reset()
-                                        
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    panel_open = not panel_open
-                
-                # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
-                elif panel_open:
-                    if event.key in (pygame.K_1, pygame.K_KP1):
-                        ghost_states["Blinky"] = not ghost_states["Blinky"]
-                        if ghost_states["Blinky"]: blinky.reset()
-                    elif event.key in (pygame.K_2, pygame.K_KP2):
-                        ghost_states["Pinky"] = not ghost_states["Pinky"]
-                        if ghost_states["Pinky"]: pinky.reset()
-                    elif event.key in (pygame.K_3, pygame.K_KP3):
-                        ghost_states["Inky"] = not ghost_states["Inky"]
-                        if ghost_states["Inky"]: inky.reset()
-                    elif event.key in (pygame.K_4, pygame.K_KP4):
-                        ghost_states["Clyde"] = not ghost_states["Clyde"]
-                        if ghost_states["Clyde"]: clyde.reset()
-                        
-                # Pac-Man keyboard inputs (WASD or Arrow Keys)
-                elif not panel_open:
-                    if event.key in (pygame.K_UP, pygame.K_w):
-                        pacman.queued_dir = "UP"
-                    elif event.key in (pygame.K_DOWN, pygame.K_s):
-                        pacman.queued_dir = "DOWN"
-                    elif event.key in (pygame.K_LEFT, pygame.K_a):
-                        pacman.queued_dir = "LEFT"
-                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
-                        pacman.queued_dir = "RIGHT"
+                        if event.key in (pygame.K_1, pygame.K_KP1):
+                            ghost_states["Blinky"] = not ghost_states["Blinky"]
+                            if ghost_states["Blinky"]: blinky.reset()
+                        elif event.key in (pygame.K_2, pygame.K_KP2):
+                            ghost_states["Pinky"] = not ghost_states["Pinky"]
+                            if ghost_states["Pinky"]: pinky.reset()
+                        elif event.key in (pygame.K_3, pygame.K_KP3):
+                            ghost_states["Inky"] = not ghost_states["Inky"]
+                            if ghost_states["Inky"]: inky.reset()
+                        elif event.key in (pygame.K_4, pygame.K_KP4):
+                            ghost_states["Clyde"] = not ghost_states["Clyde"]
+                            if ghost_states["Clyde"]: clyde.reset()
+                            
+                    # Pac-Man keyboard inputs (WASD or Arrow Keys)
+                    elif not panel_open:
+                        if event.key in (pygame.K_UP, pygame.K_w):
+                            pacman.queued_dir = "UP"
+                        elif event.key in (pygame.K_DOWN, pygame.K_s):
+                            pacman.queued_dir = "DOWN"
+                        elif event.key in (pygame.K_LEFT, pygame.K_a):
+                            pacman.queued_dir = "LEFT"
+                        elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                            pacman.queued_dir = "RIGHT"
 
-        # Update states if panel is closed (not paused)
-        if not panel_open:
-            # Update Pac-Man state and handle pellet consumption
-            score_gain = pacman.update()
-            score += score_gain
-            high_score = max(high_score, score)
+        # Update states if panel is closed (not paused) and playing
+        if not panel_open and game_state == "PLAYING":
+            if life_lost_timer > 0:
+                life_lost_timer -= 1
+            else:
+                # Update Pac-Man state and handle pellet consumption
+                score_gain, power_pellet_eaten = pacman.update()
+                score += score_gain
+                high_score = max(high_score, score)
 
-            # Determine Pac-Man's active facing direction
-            pacman_facing = pacman.current_dir if pacman.current_dir else pacman.last_dir
+                if power_pellet_eaten:
+                    frightened_timer = 420  # 7 seconds
+                    consecutive_ghosts_eaten = 0
+                    for g in [blinky, pinky, inky, clyde]:
+                        if g.state in ("chasing", "frightened"):
+                            g.state = "frightened"
+                            g.path = []
+                            g.recalc_timer = 10
 
-            # Update enabled ghosts AI and chase targeting
-            if ghost_states["Blinky"]:
-                blinky.update((pacman.row, pacman.col), pacman_facing)
-            if ghost_states["Pinky"]:
-                pinky.update((pacman.row, pacman.col), pacman_facing)
-            if ghost_states["Inky"]:
-                inky.update((pacman.row, pacman.col), pacman_facing, blinky_pos=(blinky.row, blinky.col))
-            if ghost_states["Clyde"]:
-                clyde.update((pacman.row, pacman.col), pacman_facing, blinky_pos=(blinky.row, blinky.col))
+                # Determine Pac-Man's active facing direction
+                pacman_facing = pacman.current_dir if pacman.current_dir else pacman.last_dir
 
-            # Check collision between Pac-Man and any active ghosts
-            collision_detected = False
-            if ghost_states["Blinky"] and blinky.row == pacman.row and blinky.col == pacman.col:
-                collision_detected = True
-            if ghost_states["Pinky"] and pinky.row == pacman.row and pinky.col == pacman.col:
-                collision_detected = True
-            if ghost_states["Inky"] and inky.row == pacman.row and inky.col == pacman.col:
-                collision_detected = True
-            if ghost_states["Clyde"] and clyde.row == pacman.row and clyde.col == pacman.col:
-                collision_detected = True
-                
-            if collision_detected:
-                print("Pac-Man caught!")
+                # Update enabled ghosts AI and chase targeting
+                if ghost_states["Blinky"]:
+                    blinky.update((pacman.row, pacman.col), pacman_facing, frightened_timer=frightened_timer)
+                if ghost_states["Pinky"]:
+                    pinky.update((pacman.row, pacman.col), pacman_facing, frightened_timer=frightened_timer)
+                if ghost_states["Inky"]:
+                    inky.update((pacman.row, pacman.col), pacman_facing, blinky_pos=(blinky.row, blinky.col), frightened_timer=frightened_timer)
+                if ghost_states["Clyde"]:
+                    clyde.update((pacman.row, pacman.col), pacman_facing, blinky_pos=(blinky.row, blinky.col), frightened_timer=frightened_timer)
+
+                # Tick down frightened timer
+                if frightened_timer > 0:
+                    frightened_timer -= 1
+                    if frightened_timer == 0:
+                        # Reset frightened ghosts to chasing
+                        for g in [blinky, pinky, inky, clyde]:
+                            if g.state == "frightened":
+                                g.state = "chasing"
+                                g.path = []
+                                g.recalc_timer = 10
+
+                # Check collision between Pac-Man and any active ghosts
+                collision_ghost = None
+                for g_name, g in [("Blinky", blinky), ("Pinky", pinky), ("Inky", inky), ("Clyde", clyde)]:
+                    if ghost_states[g_name] and g.row == pacman.row and g.col == pacman.col:
+                        collision_ghost = g
+                        break
+
+                if collision_ghost:
+                    if collision_ghost.state == "frightened":
+                        # Eat frightened ghost
+                        consecutive_ghosts_eaten += 1
+                        points = 200 * (2 ** (consecutive_ghosts_eaten - 1))
+                        points = min(points, 1600)
+                        score += points
+                        high_score = max(high_score, score)
+                        collision_ghost.reset()
+                    else:
+                        # Collision with normal ghost -> lose life
+                        lives -= 1
+                        if lives <= 0:
+                            game_state = "GAME_OVER"
+                        else:
+                            pacman.reset()
+                            blinky.reset()
+                            pinky.reset()
+                            inky.reset()
+                            clyde.reset()
+                            life_lost_timer = 120  # 2 second pause
+
+                # Check win condition: total remaining pellets
+                pellets_remaining = sum(1 for r in range(len(grid)) for c in range(len(grid[0])) if grid[r][c] in (2, 4))
+                if pellets_remaining == 0:
+                    game_state = "WIN"
 
         # Clear Virtual Buffer
         virtual_surface.fill(COLOR_BACKGROUND)
 
         # 1. Render Top Arcade HUD
-        render_hud(virtual_surface, retro_font, current_score=score, high_score=high_score)
+        render_hud(virtual_surface, retro_font, current_score=score, high_score=high_score, lives=lives)
 
         # 2. Render Arcade Maze Layout
         render_maze(virtual_surface, grid)
@@ -273,13 +345,13 @@ def main():
 
         # 4. Render Ghosts
         if ghost_states["Blinky"]:
-            blinky.draw(virtual_surface, HUD_HEIGHT)
+            blinky.draw(virtual_surface, HUD_HEIGHT, frightened_timer=frightened_timer)
         if ghost_states["Pinky"]:
-            pinky.draw(virtual_surface, HUD_HEIGHT)
+            pinky.draw(virtual_surface, HUD_HEIGHT, frightened_timer=frightened_timer)
         if ghost_states["Inky"]:
-            inky.draw(virtual_surface, HUD_HEIGHT)
+            inky.draw(virtual_surface, HUD_HEIGHT, frightened_timer=frightened_timer)
         if ghost_states["Clyde"]:
-            clyde.draw(virtual_surface, HUD_HEIGHT)
+            clyde.draw(virtual_surface, HUD_HEIGHT, frightened_timer=frightened_timer)
 
         # 5. Render Ghost Control Panel Overlay if open
         if panel_open:
@@ -293,6 +365,35 @@ def main():
             virtual_surface.blit(dim_overlay, (0, 0))
 
             render_ghost_control_panel(virtual_surface, retro_font, panel_desc_font, panel_bold_font, ghost_states)
+
+        # 6. Render WIN / GAME OVER screen overlay
+        if game_state in ("WIN", "GAME_OVER"):
+            dim_overlay = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.SRCALPHA)
+            dim_overlay.fill((0, 0, 0, 180))
+            virtual_surface.blit(dim_overlay, (0, 0))
+
+            overlay_w = 400
+            overlay_h = 160
+            overlay_x = (VIRTUAL_WIDTH - overlay_w) // 2
+            overlay_y = (VIRTUAL_HEIGHT - overlay_h) // 2
+
+            pygame.draw.rect(virtual_surface, (20, 20, 20), (overlay_x, overlay_y, overlay_w, overlay_h))
+            pygame.draw.rect(virtual_surface, (255, 255, 255), (overlay_x, overlay_y, overlay_w, overlay_h), 2)
+
+            if game_state == "WIN":
+                msg = "YOU WIN!"
+                color = (0, 255, 0)
+            else:
+                msg = "GAME OVER"
+                color = (255, 0, 0)
+
+            title_surf = retro_font.render(msg, True, color)
+            title_rect = title_surf.get_rect(center=(VIRTUAL_WIDTH // 2, overlay_y + 50))
+            virtual_surface.blit(title_surf, title_rect)
+
+            restart_surf = retro_font.render("PRESS ANY KEY TO RESTART", True, (255, 255, 255))
+            restart_rect = restart_surf.get_rect(center=(VIRTUAL_WIDTH // 2, overlay_y + 110))
+            virtual_surface.blit(restart_surf, restart_rect)
 
         # Dynamic Aspect-Ratio Scaling to Fit Window Screen (keeps retro aspect ratio)
         curr_w, curr_h = screen.get_size()

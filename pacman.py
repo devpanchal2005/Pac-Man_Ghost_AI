@@ -89,7 +89,23 @@ class PacMan:
         self.target_row = self.row
         self.target_col = self.col
         
+        # Cache starting position for resetting
+        self.start_row = self.row
+        self.start_col = self.col
+        
         # Animation
+        self.chomp_time = 0
+
+    def reset(self):
+        self.row = self.start_row
+        self.col = self.start_col
+        self.pixel_x = float(self.col * TILE_SIZE)
+        self.pixel_y = float(self.row * TILE_SIZE)
+        self.current_dir = None
+        self.queued_dir = None
+        self.last_dir = "RIGHT"
+        self.target_row = self.row
+        self.target_col = self.col
         self.chomp_time = 0
 
     def is_walkable(self, r, c):
@@ -223,11 +239,16 @@ class PacMan:
 
         # 4. Pellet consumption: check current grid tile
         score_gain = 0
+        power_pellet_eaten = False
         if self.grid[self.row][self.col] == 2:
             self.grid[self.row][self.col] = 0
             score_gain = 10
+        elif self.grid[self.row][self.col] == 4:
+            self.grid[self.row][self.col] = 0
+            score_gain = 50
+            power_pellet_eaten = True
             
-        return score_gain
+        return score_gain, power_pellet_eaten
 
     def draw(self, surface, y_offset):
         # Calculate pixel center for rendering
