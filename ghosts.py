@@ -2,7 +2,7 @@
 import math
 import heapq
 import pygame
-from constants import TILE_SIZE
+from constants import TILE_SIZE, COLOR_FRIGHTENED, COLOR_FRIGHTENED_WARNING_RED
 
 def is_walkable(row, col, state, grid):
     """
@@ -82,7 +82,7 @@ def a_star(start, goal, state, grid):
                 
     return []
 
-def draw_ghost(surface, color, center, radius, direction_name, frightened=False):
+def draw_ghost(surface, color, center, radius, direction_name, face_color=None):
     """
     Draws a classic retro arcade ghost with a rounded top, wavy bottom scallops,
     and direction-pointing white eyes with blue pupils.
@@ -122,37 +122,40 @@ def draw_ghost(surface, color, center, radius, direction_name, frightened=False)
     # Draw a thin black outline for contrast
     pygame.draw.polygon(surface, (0, 0, 0), points, 1)
     
-    if frightened:
-        # Frightened face: two small white circles and a wavy zigzag frown mouth
-        left_eye_center = (int(x - radius * 0.22), int(y - radius * 0.15))
-        right_eye_center = (int(x + radius * 0.22), int(y - radius * 0.15))
-        eye_r = max(2, int(radius * 0.15))
+    if face_color is not None:
+        # Frightened Face rendering
+        # 1. Eyes: two small off-white ovals, no pupils, in the upper-half of the face
+        eye_w = max(4, int(radius * 0.45))
+        eye_h = max(5, int(radius * 0.65))
+        left_eye_rect = pygame.Rect(
+            int(x - radius * 0.25 - eye_w / 2.0),
+            int(y - radius * 0.15 - eye_h / 2.0),
+            eye_w,
+            eye_h
+        )
+        right_eye_rect = pygame.Rect(
+            int(x + radius * 0.25 - eye_w / 2.0),
+            int(y - radius * 0.15 - eye_h / 2.0),
+            eye_w,
+            eye_h
+        )
+        pygame.draw.ellipse(surface, face_color, left_eye_rect)
+        pygame.draw.ellipse(surface, face_color, right_eye_rect)
         
-        # Draw eyes (1px black outline + white fill)
-        pygame.draw.circle(surface, (0, 0, 0), left_eye_center, eye_r + 1)
-        pygame.draw.circle(surface, (255, 255, 255), left_eye_center, eye_r)
-        
-        pygame.draw.circle(surface, (0, 0, 0), right_eye_center, eye_r + 1)
-        pygame.draw.circle(surface, (255, 255, 255), right_eye_center, eye_r)
-        
-        # Wavy zigzag mouth: short horizontal line of 3-4 connected zigzag segments
+        # 2. Zigzag Mouth: bold frown forming a "W" shape, in the lower-third of the face
         mx = x
         my = y + radius * 0.35
-        mw = radius * 0.65
-        mh = radius * 0.15
-        
+        mw = radius * 1.2
+        mh = radius * 0.3
         mouth_points = [
-            (mx - mw / 2.0, my + mh / 2.0),
-            (mx - mw / 4.0, my - mh / 2.0),
-            (mx, my + mh / 2.0),
-            (mx + mw / 4.0, my - mh / 2.0),
-            (mx + mw / 2.0, my + mh / 2.0)
+            (mx - mw / 2.0, my - mh / 2.0),
+            (mx - mw / 4.0, my + mh / 2.0),
+            (mx, my - mh / 2.0),
+            (mx + mw / 4.0, my + mh / 2.0),
+            (mx + mw / 2.0, my - mh / 2.0)
         ]
-        
-        # Draw outline (4px black) then line (2px white) for contrast
         mouth_points = [(int(px), int(py)) for px, py in mouth_points]
-        pygame.draw.lines(surface, (0, 0, 0), False, mouth_points, 4)
-        pygame.draw.lines(surface, (255, 255, 255), False, mouth_points, 2)
+        pygame.draw.lines(surface, face_color, False, mouth_points, 2)
         return
     
     # 2. Eyes
@@ -441,18 +444,24 @@ class Ghost:
         
         # Determine color
         draw_color = self.color
+        face_color = None
+        
         if self.state == "frightened":
+            # Default body color is blue, face is off-white (255, 250, 230)
+            draw_color = COLOR_FRIGHTENED
+            face_color = (255, 250, 230)
+            
             if frightened_timer > 0 and frightened_timer <= 120:
-                # Flash between dark blue and white
+                # Flash between dark blue/off-white face and white/red face
                 flash = (frightened_timer // 10) % 2 == 0
                 if flash:
-                    draw_color = (255, 255, 255) # White
+                    draw_color = (255, 255, 255) # White body
+                    face_color = COLOR_FRIGHTENED_WARNING_RED # Red face
                 else:
-                    draw_color = (33, 33, 222) # Dark blue
-            else:
-                draw_color = (33, 33, 222) # Dark blue
-                
-        draw_ghost(surface, draw_color, (center_x, center_y), radius, self.current_dir, frightened=(self.state == "frightened"))
+                    draw_color = COLOR_FRIGHTENED # Dark blue body
+                    face_color = (255, 250, 230) # Off-white face
+                    
+        draw_ghost(surface, draw_color, (center_x, center_y), radius, self.current_dir, face_color=face_color)
 
 class BlinkyGhost(Ghost):
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):

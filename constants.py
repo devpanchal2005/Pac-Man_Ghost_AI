@@ -46,3 +46,4 @@ COLOR_HUD_TEXT = (255, 255, 255)        # Retro Arcade White
 
 # Frightened Ghost Color
 COLOR_FRIGHTENED = (33, 33, 222)        # Retro Dark Blue
+COLOR_FRIGHTENED_WARNING_RED = (255, 50, 50)  # Retro Warning Red

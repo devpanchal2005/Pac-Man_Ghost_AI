@@ -7,26 +7,11 @@ from constants import (
     COLOR_GHOST_CYAN, COLOR_GHOST_ORANGE, COLOR_FRIGHTENED
 )
 from maze import load_maze, render_maze
-from pacman import PacMan
+from pacman import PacMan, draw_pacman
 from ghosts import BlinkyGhost, PinkyGhost, InkyGhost, ClydeGhost, draw_ghost
 
 def draw_hud_pacman_icon(surface, center, radius):
-    x, y = center
-    # Mouth open angle (wedge cutout facing right, e.g. 50 degrees / 0.9 radians)
-    mouth_open_angle = 0.9
-    start_angle = mouth_open_angle / 2.0
-    end_angle = 2.0 * math.pi - mouth_open_angle / 2.0
-    
-    points = [(x, y)]
-    num_segments = 16
-    for i in range(num_segments + 1):
-        angle = start_angle + (end_angle - start_angle) * (i / num_segments)
-        px = x + radius * math.cos(angle)
-        py = y + radius * math.sin(angle)
-        points.append((px, py))
-        
-    pygame.draw.polygon(surface, (255, 255, 0), points)
-    pygame.draw.polygon(surface, (0, 0, 0), points, 1)
+    draw_pacman(surface, (255, 255, 0), center, radius, "RIGHT", 1.2)
 
 def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
     """
@@ -37,13 +22,15 @@ def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
     """
     # 1. Top-Left Lives Display
     lives_lbl = font.render("LIVES", True, COLOR_HUD_TEXT)
-    surface.blit(lives_lbl, (16, 16))
+    lbl_rect = lives_lbl.get_rect(left=24, centery=36)
+    surface.blit(lives_lbl, lbl_rect)
     
     # Draw Pac-Man icons representing remaining lives
+    radius = 9 # ~18px diameter
     for i in range(lives):
-        center_x = 16 + 10 + i * 22
+        center_x = lbl_rect.right + 12 + radius + i * 28
         center_y = 36
-        draw_hud_pacman_icon(surface, (center_x, center_y), 8)
+        draw_hud_pacman_icon(surface, (center_x, center_y), radius)
 
     # 2. Top-Center Scores
     # Header: "HIGH SCORE"
@@ -251,6 +238,10 @@ def main():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         panel_open = not panel_open
+                    elif event.key == pygame.K_F12:
+                        screenshot_path = "/home/devpanchal/.gemini/antigravity-ide/brain/2ad02e09-a2a2-4187-bc2e-a766401a4297/gameplay_screenshot.png"
+                        pygame.image.save(virtual_surface, screenshot_path)
+                        print(f"Captured screenshot to {screenshot_path}")
                     
                     # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
                     elif panel_open:
@@ -418,6 +409,12 @@ def main():
             restart_surf = retro_font.render("PRESS ANY KEY TO RESTART", True, (255, 255, 255))
             restart_rect = restart_surf.get_rect(center=(VIRTUAL_WIDTH // 2, overlay_y + 110))
             virtual_surface.blit(restart_surf, restart_rect)
+
+        # Check if we should capture a screenshot when frightened mode is active
+        if game_state == "PLAYING" and frightened_timer == 360:
+            screenshot_path = "/home/devpanchal/.gemini/antigravity-ide/brain/2ad02e09-a2a2-4187-bc2e-a766401a4297/gameplay_screenshot.png"
+            pygame.image.save(virtual_surface, screenshot_path)
+            print(f"Captured screenshot to {screenshot_path}")
 
         # Dynamic Aspect-Ratio Scaling to Fit Window Screen (keeps retro aspect ratio)
         curr_w, curr_h = screen.get_size()
