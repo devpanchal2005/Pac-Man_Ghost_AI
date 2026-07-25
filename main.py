@@ -3,11 +3,11 @@ import sys
 import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
-    COLOR_HUD_TEXT, HUD_HEIGHT, COLOR_GHOST_RED
+    COLOR_HUD_TEXT, HUD_HEIGHT, COLOR_GHOST_RED, COLOR_GHOST_PINK, COLOR_GHOST_CYAN
 )
 from maze import load_maze, render_maze
 from pacman import PacMan
-from ghosts import BlinkyGhost
+from ghosts import BlinkyGhost, PinkyGhost, InkyGhost
 
 def render_hud(surface, font, current_score=70, high_score=1920):
     """
@@ -86,7 +86,9 @@ def main():
     clock = pygame.time.Clock()
     grid = load_maze()
     pacman = PacMan(grid)
-    blinky = BlinkyGhost(grid, COLOR_GHOST_RED)
+    blinky = BlinkyGhost(grid, COLOR_GHOST_RED, start_tile=(14, 13), release_delay=0)
+    pinky = PinkyGhost(grid, COLOR_GHOST_PINK, start_tile=(14, 12), release_delay=120)
+    inky = InkyGhost(grid, COLOR_GHOST_CYAN, start_tile=(14, 14), release_delay=240)
     score = 0
     high_score = 1920
 
@@ -124,11 +126,18 @@ def main():
         score += score_gain
         high_score = max(high_score, score)
 
-        # Update Blinky Ghost AI and chase targeting
-        blinky.update((pacman.row, pacman.col))
+        # Determine Pac-Man's active facing direction
+        pacman_facing = pacman.current_dir if pacman.current_dir else pacman.last_dir
 
-        # Check collision between Pac-Man and Blinky
-        if blinky.row == pacman.row and blinky.col == pacman.col:
+        # Update Ghosts AI and chase targeting
+        blinky.update((pacman.row, pacman.col), pacman_facing)
+        pinky.update((pacman.row, pacman.col), pacman_facing)
+        inky.update((pacman.row, pacman.col), pacman_facing, blinky_pos=(blinky.row, blinky.col))
+
+        # Check collision between Pac-Man and any of the ghosts
+        if (blinky.row == pacman.row and blinky.col == pacman.col) or \
+           (pinky.row == pacman.row and pinky.col == pacman.col) or \
+           (inky.row == pacman.row and inky.col == pacman.col):
             print("Pac-Man caught!")
 
         # Clear Virtual Buffer
@@ -145,6 +154,8 @@ def main():
 
         # 4. Render Ghosts
         blinky.draw(virtual_surface, HUD_HEIGHT)
+        pinky.draw(virtual_surface, HUD_HEIGHT)
+        inky.draw(virtual_surface, HUD_HEIGHT)
 
         # 3. Dynamic Aspect-Ratio Scaling to Fit Window Screen
         win_w, win_h = screen.get_size()

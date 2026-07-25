@@ -170,16 +170,54 @@ def draw_ghost(surface, color, center, radius, direction_name):
     pygame.draw.circle(surface, pupil_color, (int(left_pupil_x), int(left_pupil_y)), int(pupil_radius))
     pygame.draw.circle(surface, pupil_color, (int(right_pupil_x), int(right_pupil_y)), int(pupil_radius))
 
+def find_nearest_walkable(grid, start_r, start_c, state):
+    """
+    Performs a BFS starting from (start_r, start_c) to find the closest valid walkable tile.
+    Clamps the search within grid bounds.
+    """
+    height = len(grid)
+    width = len(grid[0])
+    
+    # Clamp starting coordinates to bounds
+    start_r = max(0, min(start_r, height - 1))
+    start_c = max(0, min(start_c, width - 1))
+    
+    if is_walkable(start_r, start_c, state, grid):
+        return start_r, start_c
+        
+    queue = [(start_r, start_c)]
+    visited = {(start_r, start_c)}
+    
+    while queue:
+        r, c = queue.pop(0)
+        
+        for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            nr = r + dr
+            nc = c + dc
+            
+            # Apply wrap-around horizontally
+            if nc < 0:
+                nc = width - 1
+            elif nc >= width:
+                nc = 0
+                
+            if 0 <= nr < height:
+                if (nr, nc) not in visited:
+                    visited.add((nr, nc))
+                    if is_walkable(nr, nc, state, grid):
+                        return nr, nc
+                    queue.append((nr, nc))
+                    
+    return start_r, start_c  # Fallback
+
 class Ghost:
-    def __init__(self, grid, color):
+    def __init__(self, grid, color, start_tile=(14, 13), release_delay=0):
         self.grid = grid
         self.rows = len(grid)
         self.cols = len(grid[0])
         self.color = color
         
-        # Start inside the ghost house
-        self.row = 14
-        self.col = 13
+        self.row, self.col = start_tile
         
         self.pixel_x = float(self.col * TILE_SIZE)
         self.pixel_y = float(self.row * TILE_SIZE)
@@ -195,6 +233,17 @@ class Ghost:
         self.path = []
         
         self.recalc_timer = 0
+        
+        # Release delay and timer (in frames)
+        self.release_delay = release_delay
+        self.release_timer = 0
+
+    def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
+        """
+        To be overridden by subclasses.
+        Returns: (row, col) target tile for pathfinding.
+        """
+        return pacman_pos
 
     def get_next_move(self, grid, start_tile, target_tile):
         """
@@ -203,11 +252,15 @@ class Ghost:
         """
         return []
 
-    def update(self, pacman_pos):
-        # 1. State transition from in_house to exiting
+    def update(self, pacman_pos, pacman_dir="RIGHT", blinky_pos=None):
+        # 1. State transition from in_house to exiting after release_delay
         if self.state == "in_house":
-            self.state = "exiting"
-            self.path = []
+            self.release_timer += 1
+            if self.release_timer >= self.release_delay:
+                self.state = "exiting"
+                self.path = []
+            else:
+                return
             
         # 2. Recalculate chasing path periodically
         if self.state == "chasing":
@@ -215,7 +268,8 @@ class Ghost:
             if self.recalc_timer >= 10:
                 self.recalc_timer = 0
                 start_tile = (self.target_row, self.target_col)
-                new_path = self.get_next_move(self.grid, start_tile, pacman_pos)
+                target_tile = self.get_target_tile(pacman_pos, pacman_dir, blinky_pos)
+                new_path = self.get_next_move(self.grid, start_tile, target_tile)
                 if new_path:
                     self.path = new_path
                     
@@ -252,7 +306,8 @@ class Ghost:
                 if self.state == "exiting":
                     self.path = a_star((self.row, self.col), (12, 13), self.state, self.grid)
                 elif self.state == "chasing":
-                    self.path = self.get_next_move(self.grid, (self.row, self.col), pacman_pos)
+                    target_tile = self.get_target_tile(pacman_pos, pacman_dir, blinky_pos)
+                    self.path = self.get_next_move(self.grid, (self.row, self.col), target_tile)
                     
             # Pop the first element of path (current node)
             if self.path and self.path[0] == (self.row, self.col):
@@ -303,15 +358,95 @@ class Ghost:
             self.pixel_y = max(self.pixel_y - self.speed, dest_pixel_y)
 
     def draw(self, surface, y_offset):
+        # Do not draw if still waiting in house (or draw them stationary)
+        # Requirement: "Start inside the ghost house in 'in_house' state... reuse exiting behavior... Render both"
+        # We should draw them at their current position, even if in_house.
         center_x = self.pixel_x + TILE_SIZE / 2.0
         center_y = self.pixel_y + TILE_SIZE / 2.0 + y_offset
-        # Set radius to fill 80-85% of a tile's diameter (24 * 0.42 = 10.08, ~10 pixels radius)
         radius = TILE_SIZE * 0.42
         draw_ghost(surface, self.color, (center_x, center_y), radius, self.current_dir)
 
 class BlinkyGhost(Ghost):
+    def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
+        return pacman_pos
+
     def get_next_move(self, grid, start_tile, target_tile):
-        """
-        Blinky's AI is direct-chase: target Pac-Man directly using A* search.
-        """
+        return a_star(start_tile, target_tile, self.state, grid)
+
+class PinkyGhost(Ghost):
+    def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
+        pr, pc = pacman_pos
+        
+        # Direction vector
+        dr, dc = 0, 0
+        if pacman_dir == "UP":
+            dr = -1
+        elif pacman_dir == "DOWN":
+            dr = 1
+        elif pacman_dir == "LEFT":
+            dc = -1
+        elif pacman_dir == "RIGHT":
+            dc = 1
+            
+        # Target is 4 tiles ahead in Pac-Man's current facing direction.
+        # Clamp to furthest walkable tile along the path if we hit a wall.
+        target_r, target_c = pr, pc
+        for step in range(1, 5):
+            nr = pr + dr * step
+            nc = pc + dc * step
+            
+            # Apply wrap-around horizontally for the columns
+            if nc < 0:
+                nc = self.cols - 1
+            elif nc >= self.cols:
+                nc = 0
+                
+            if 0 <= nr < self.rows:
+                if is_walkable(nr, nc, self.state, self.grid):
+                    target_r, target_c = nr, nc
+                else:
+                    break
+            else:
+                break
+                
+        return target_r, target_c
+
+    def get_next_move(self, grid, start_tile, target_tile):
+        return a_star(start_tile, target_tile, self.state, grid)
+
+class InkyGhost(Ghost):
+    def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
+        if not blinky_pos:
+            blinky_pos = (14, 13)
+            
+        pr, pc = pacman_pos
+        br, bc = blinky_pos
+        
+        # 1. Intermediate tile: 2 tiles ahead of Pac-Man
+        dr, dc = 0, 0
+        if pacman_dir == "UP":
+            dr = -1
+        elif pacman_dir == "DOWN":
+            dr = 1
+        elif pacman_dir == "LEFT":
+            dc = -1
+        elif pacman_dir == "RIGHT":
+            dc = 1
+            
+        ir = pr + dr * 2
+        ic = pc + dc * 2
+        # Apply wrapping
+        ic = ic % self.cols
+        
+        # 2. Vector from Blinky to Intermediate tile, doubled
+        vec_r = ir - br
+        vec_c = ic - bc
+        
+        target_r = br + 2 * vec_r
+        target_c = bc + 2 * vec_c
+        
+        # 3. Clamp target to grid bounds and find nearest walkable tile
+        return find_nearest_walkable(self.grid, target_r, target_c, self.state)
+
+    def get_next_move(self, grid, start_tile, target_tile):
         return a_star(start_tile, target_tile, self.state, grid)
