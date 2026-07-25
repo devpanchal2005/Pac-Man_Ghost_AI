@@ -194,10 +194,7 @@ def main():
                                         
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    if panel_open:
-                        panel_open = False
-                    else:
-                        running = False
+                    panel_open = not panel_open
                 elif event.key == pygame.K_f or event.key == pygame.K_F11:
                     # Toggle Fullscreen Mode
                     fullscreen = not fullscreen
@@ -206,18 +203,18 @@ def main():
                     else:
                         screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
                 
-                # Keyboard 1-4 ghost toggles if panel open
+                # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
                 elif panel_open:
-                    if event.key == pygame.K_1:
+                    if event.key in (pygame.K_1, pygame.K_KP1):
                         ghost_states["Blinky"] = not ghost_states["Blinky"]
                         if ghost_states["Blinky"]: blinky.reset()
-                    elif event.key == pygame.K_2:
+                    elif event.key in (pygame.K_2, pygame.K_KP2):
                         ghost_states["Pinky"] = not ghost_states["Pinky"]
                         if ghost_states["Pinky"]: pinky.reset()
-                    elif event.key == pygame.K_3:
+                    elif event.key in (pygame.K_3, pygame.K_KP3):
                         ghost_states["Inky"] = not ghost_states["Inky"]
                         if ghost_states["Inky"]: inky.reset()
-                    elif event.key == pygame.K_4:
+                    elif event.key in (pygame.K_4, pygame.K_KP4):
                         ghost_states["Clyde"] = not ghost_states["Clyde"]
                         if ghost_states["Clyde"]: clyde.reset()
                         
