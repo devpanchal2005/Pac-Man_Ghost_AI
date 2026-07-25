@@ -217,6 +217,7 @@ class Ghost:
         self.cols = len(grid[0])
         self.color = color
         
+        self.start_tile = start_tile
         self.row, self.col = start_tile
         
         self.pixel_x = float(self.col * TILE_SIZE)
@@ -236,6 +237,18 @@ class Ghost:
         
         # Release delay and timer (in frames)
         self.release_delay = release_delay
+        self.release_timer = 0
+
+    def reset(self):
+        self.row, self.col = self.start_tile
+        self.pixel_x = float(self.col * TILE_SIZE)
+        self.pixel_y = float(self.row * TILE_SIZE)
+        self.current_dir = "UP"
+        self.state = "in_house"
+        self.target_row = self.row
+        self.target_col = self.col
+        self.path = []
+        self.recalc_timer = 0
         self.release_timer = 0
 
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
@@ -447,6 +460,25 @@ class InkyGhost(Ghost):
         
         # 3. Clamp target to grid bounds and find nearest walkable tile
         return find_nearest_walkable(self.grid, target_r, target_c, self.state)
+
+    def get_next_move(self, grid, start_tile, target_tile):
+        return a_star(start_tile, target_tile, self.state, grid)
+
+class ClydeGhost(Ghost):
+    def __init__(self, grid, color, start_tile=(14, 15), release_delay=360):
+        super().__init__(grid, color, start_tile, release_delay)
+
+    def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
+        pr, pc = pacman_pos
+        # Manhattan distance on grid coords
+        dist = abs(self.row - pr) + abs(self.col - pc)
+        
+        if dist > 8:
+            # Target Pac-Man directly (like Blinky)
+            return pacman_pos
+        else:
+            # Target fixed scatter corner bottom-left (29, 1) which is walkable path
+            return (29, 1)
 
     def get_next_move(self, grid, start_tile, target_tile):
         return a_star(start_tile, target_tile, self.state, grid)
