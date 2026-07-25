@@ -82,7 +82,7 @@ def a_star(start, goal, state, grid):
                 
     return []
 
-def draw_ghost(surface, color, center, radius, direction_name):
+def draw_ghost(surface, color, center, radius, direction_name, frightened=False):
     """
     Draws a classic retro arcade ghost with a rounded top, wavy bottom scallops,
     and direction-pointing white eyes with blue pupils.
@@ -121,6 +121,39 @@ def draw_ghost(surface, color, center, radius, direction_name):
     pygame.draw.polygon(surface, color, points)
     # Draw a thin black outline for contrast
     pygame.draw.polygon(surface, (0, 0, 0), points, 1)
+    
+    if frightened:
+        # Frightened face: two small white circles and a wavy zigzag frown mouth
+        left_eye_center = (int(x - radius * 0.22), int(y - radius * 0.15))
+        right_eye_center = (int(x + radius * 0.22), int(y - radius * 0.15))
+        eye_r = max(2, int(radius * 0.15))
+        
+        # Draw eyes (1px black outline + white fill)
+        pygame.draw.circle(surface, (0, 0, 0), left_eye_center, eye_r + 1)
+        pygame.draw.circle(surface, (255, 255, 255), left_eye_center, eye_r)
+        
+        pygame.draw.circle(surface, (0, 0, 0), right_eye_center, eye_r + 1)
+        pygame.draw.circle(surface, (255, 255, 255), right_eye_center, eye_r)
+        
+        # Wavy zigzag mouth: short horizontal line of 3-4 connected zigzag segments
+        mx = x
+        my = y + radius * 0.35
+        mw = radius * 0.65
+        mh = radius * 0.15
+        
+        mouth_points = [
+            (mx - mw / 2.0, my + mh / 2.0),
+            (mx - mw / 4.0, my - mh / 2.0),
+            (mx, my + mh / 2.0),
+            (mx + mw / 4.0, my - mh / 2.0),
+            (mx + mw / 2.0, my + mh / 2.0)
+        ]
+        
+        # Draw outline (4px black) then line (2px white) for contrast
+        mouth_points = [(int(px), int(py)) for px, py in mouth_points]
+        pygame.draw.lines(surface, (0, 0, 0), False, mouth_points, 4)
+        pygame.draw.lines(surface, (255, 255, 255), False, mouth_points, 2)
+        return
     
     # 2. Eyes
     dx_eye, dy_eye = 0, 0
@@ -419,7 +452,7 @@ class Ghost:
             else:
                 draw_color = (33, 33, 222) # Dark blue
                 
-        draw_ghost(surface, draw_color, (center_x, center_y), radius, self.current_dir)
+        draw_ghost(surface, draw_color, (center_x, center_y), radius, self.current_dir, frightened=(self.state == "frightened"))
 
 class BlinkyGhost(Ghost):
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):

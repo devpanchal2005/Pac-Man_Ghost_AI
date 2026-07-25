@@ -1,5 +1,5 @@
-# main.py
 import sys
+import math
 import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
@@ -10,6 +10,24 @@ from maze import load_maze, render_maze
 from pacman import PacMan
 from ghosts import BlinkyGhost, PinkyGhost, InkyGhost, ClydeGhost, draw_ghost
 
+def draw_hud_pacman_icon(surface, center, radius):
+    x, y = center
+    # Mouth open angle (wedge cutout facing right, e.g. 50 degrees / 0.9 radians)
+    mouth_open_angle = 0.9
+    start_angle = mouth_open_angle / 2.0
+    end_angle = 2.0 * math.pi - mouth_open_angle / 2.0
+    
+    points = [(x, y)]
+    num_segments = 16
+    for i in range(num_segments + 1):
+        angle = start_angle + (end_angle - start_angle) * (i / num_segments)
+        px = x + radius * math.cos(angle)
+        py = y + radius * math.sin(angle)
+        points.append((px, py))
+        
+    pygame.draw.polygon(surface, (255, 255, 0), points)
+    pygame.draw.polygon(surface, (0, 0, 0), points, 1)
+
 def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
     """
     Renders the retro arcade HUD matching the reference screenshot:
@@ -18,8 +36,14 @@ def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
     - Top-right: Pause icon (||) and Sound/Speaker icon
     """
     # 1. Top-Left Lives Display
-    lives_surf = font.render(f"LIVES: {lives}", True, COLOR_HUD_TEXT)
-    surface.blit(lives_surf, (16, 26))
+    lives_lbl = font.render("LIVES", True, COLOR_HUD_TEXT)
+    surface.blit(lives_lbl, (16, 16))
+    
+    # Draw Pac-Man icons representing remaining lives
+    for i in range(lives):
+        center_x = 16 + 10 + i * 22
+        center_y = 36
+        draw_hud_pacman_icon(surface, (center_x, center_y), 8)
 
     # 2. Top-Center Scores
     # Header: "HIGH SCORE"
