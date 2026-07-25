@@ -119,8 +119,8 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
             return grid[r][c] == 1
         return False
 
-    # 1. Render Horizontal Wall Segments
-    for r in range(height + 1):
+    # 1. Render Horizontal Wall Segments (excluding boundary edges at r=0 and r=height)
+    for r in range(1, height):
         for c in range(width):
             w_top = is_wall(r - 1, c)
             w_bot = is_wall(r, c)
@@ -150,9 +150,9 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
                 y_inner = y + offset if w_bot else y - offset
                 pygame.draw.line(screen, COLOR_WALL, (x1 + t1, y_inner), (x2 - t2, y_inner), line_width)
 
-    # 2. Render Vertical Wall Segments
+    # 2. Render Vertical Wall Segments (excluding boundary edges at c=0 and c=width)
     for r in range(height):
-        for c in range(width + 1):
+        for c in range(1, width):
             w_left = is_wall(r, c - 1)
             w_right = is_wall(r, c)
             if w_left != w_right:
@@ -160,7 +160,7 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
                 y1 = r * TILE_SIZE + y_offset
                 y2 = (r + 1) * TILE_SIZE + y_offset
 
-                # Check if endpoints meet horizontal corners to truncate (FIXED: checks horizontal transitions)
+                # Check if endpoints meet horizontal corners to truncate
                 t1 = 0
                 t2 = 0
                 if (is_wall(r - 1, c - 1) != is_wall(r, c - 1)) or (is_wall(r - 1, c) != is_wall(r, c)):
@@ -181,9 +181,9 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
                 x_inner = x + offset if w_right else x - offset
                 pygame.draw.line(screen, COLOR_WALL, (x_inner, y1 + t1), (x_inner, y2 - t2), line_width)
 
-    # 3. Render Curved Corner Arcs at Intersections
-    for r in range(height + 1):
-        for c in range(width + 1):
+    # 3. Render Curved Corner Arcs at Intersections (excluding boundary intersections)
+    for r in range(1, height):
+        for c in range(1, width):
             x = c * TILE_SIZE
             y = r * TILE_SIZE + y_offset
 
