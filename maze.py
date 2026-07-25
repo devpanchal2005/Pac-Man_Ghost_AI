@@ -284,4 +284,5 @@ def render_maze(screen, grid, y_offset=HUD_HEIGHT):
 
             elif cell_val == 0:
                 if r + 1 < height and grid[r + 1][c] == 3 and c in (13, 14):
-                    pygame.draw.line(screen, COLOR_GHOST_DOOR, (x, y + TILE_SIZE - 2), (x + TILE_SIZE, y + TILE_SIZE - 2), 3)
+                    gate_y = y + TILE_SIZE // 2
+                    pygame.draw.line(screen, COLOR_GHOST_DOOR, (x, gate_y), (x + TILE_SIZE, gate_y), 5)
