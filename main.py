@@ -3,9 +3,10 @@ import sys
 import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
-    COLOR_HUD_TEXT
+    COLOR_HUD_TEXT, HUD_HEIGHT
 )
 from maze import load_maze, render_maze
+from pacman import PacMan
 
 def render_hud(surface, font, current_score=70, high_score=1920):
     """
@@ -83,6 +84,9 @@ def main():
 
     clock = pygame.time.Clock()
     grid = load_maze()
+    pacman = PacMan(grid)
+    score = 0
+    high_score = 1920
 
     running = True
     fullscreen = True
@@ -102,15 +106,33 @@ def main():
                         screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.RESIZABLE)
                     else:
                         screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
+                
+                # Pac-Man keyboard inputs (WASD or Arrow Keys)
+                elif event.key in (pygame.K_UP, pygame.K_w):
+                    pacman.queued_dir = "UP"
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    pacman.queued_dir = "DOWN"
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    pacman.queued_dir = "LEFT"
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    pacman.queued_dir = "RIGHT"
+
+        # Update Pac-Man state and handle pellet consumption
+        score_gain = pacman.update()
+        score += score_gain
+        high_score = max(high_score, score)
 
         # Clear Virtual Buffer
         virtual_surface.fill(COLOR_BACKGROUND)
 
         # 1. Render Top Arcade HUD
-        render_hud(virtual_surface, retro_font)
+        render_hud(virtual_surface, retro_font, current_score=score, high_score=high_score)
 
         # 2. Render Arcade Maze Layout
         render_maze(virtual_surface, grid)
+
+        # 3. Render Pac-Man
+        pacman.draw(virtual_surface, HUD_HEIGHT)
 
         # 3. Dynamic Aspect-Ratio Scaling to Fit Window Screen
         win_w, win_h = screen.get_size()

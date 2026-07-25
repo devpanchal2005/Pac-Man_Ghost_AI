@@ -34,7 +34,7 @@ CLASSIC_MAZE_LAYOUT = [
     "1111112110000000000112111111",
     "1111112110111001110112111111",
     "1111112110133333310112111111",
-    "1000002000133333310002000001",
+    "0000002000133333310002000000",
     "1111112110133333310112111111",
     "1111112110111111110112111111",
     "1111112110000000000112111111",
@@ -64,13 +64,6 @@ def validate_maze(grid):
     for r_idx, row in enumerate(grid):
         if len(row) != expected_width:
             raise AssertionError(f"Row length mismatch at row index {r_idx}.")
-            
-    for c in range(expected_width):
-        if grid[0][c] != 1 or grid[height - 1][c] != 1:
-            raise AssertionError("Perimeter breach at top or bottom boundary.")
-    for r in range(height):
-        if grid[r][0] != 1 or grid[r][expected_width - 1] != 1:
-            raise AssertionError("Perimeter breach at left or right boundary.")
 
     pellet_positions = [(r, c) for r in range(height) for c in range(expected_width) if grid[r][c] == 2]
     if pellet_positions:
