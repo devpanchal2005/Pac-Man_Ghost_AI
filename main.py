@@ -4,22 +4,27 @@ import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
     COLOR_HUD_TEXT, HUD_HEIGHT, COLOR_GHOST_RED, COLOR_GHOST_PINK,
-    COLOR_GHOST_CYAN, COLOR_GHOST_ORANGE, COLOR_FRIGHTENED
+    COLOR_GHOST_CYAN, COLOR_GHOST_ORANGE, COLOR_FRIGHTENED, TILE_SIZE
 )
 from maze import load_maze, render_maze
 from pacman import PacMan, draw_pacman
 from ghosts import BlinkyGhost, PinkyGhost, InkyGhost, ClydeGhost, draw_ghost
+from fruit import Fruit
+from audio import SoundManager
 
 def draw_hud_pacman_icon(surface, center, radius):
     draw_pacman(surface, (255, 255, 0), center, radius, "RIGHT", 1.2)
 
-def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
+def render_hud(surface, font, current_score=70, high_score=1920, lives=3, show_fps=False, clock=None, muted=False):
     """
     Renders the retro arcade HUD matching the reference screenshot:
     - Top-left: Lives count
     - Top-center: HIGH SCORE header, high score number below, current score to the left
     - Top-right: Pause icon (||) and Sound/Speaker icon
     """
+    if show_fps and clock is not None:
+        fps_text = font.render(f"FPS: {int(clock.get_fps())}", True, (0, 255, 0))
+        surface.blit(fps_text, (VIRTUAL_WIDTH - 180, 26))
     # 1. Top-Left Lives Display
     lives_lbl = font.render("LIVES", True, COLOR_HUD_TEXT)
     lbl_rect = lives_lbl.get_rect(left=24, centery=36)
@@ -70,9 +75,13 @@ def render_hud(surface, font, current_score=70, high_score=1920, lives=3):
         (spk_x + 4, spk_y + 12),
         (spk_x, spk_y + 12)
     ])
-    # Sound waves
-    pygame.draw.arc(surface, COLOR_HUD_TEXT, (spk_x + 6, spk_y + 3, 8, 10), -1.0, 1.0, 2)
-    pygame.draw.arc(surface, COLOR_HUD_TEXT, (spk_x + 8, spk_y, 12, 16), -1.0, 1.0, 2)
+    # Sound waves (only draw if NOT muted)
+    if not muted:
+        pygame.draw.arc(surface, COLOR_HUD_TEXT, (spk_x + 6, spk_y + 3, 8, 10), -1.0, 1.0, 2)
+        pygame.draw.arc(surface, COLOR_HUD_TEXT, (spk_x + 8, spk_y, 12, 16), -1.0, 1.0, 2)
+    else:
+        # Draw red diagonal slash through the speaker
+        pygame.draw.line(surface, (255, 50, 50), (spk_x - 2, spk_y + 2), (spk_x + 12, spk_y + 14), 2)
 
 def render_ghost_control_panel(surface, font, panel_font, bold_font, ghost_states):
     panel_w = 560
@@ -174,21 +183,40 @@ def main():
     life_lost_timer = 0
     game_state = "PLAYING"
 
+    # Fruit and Audio initializations
+    fruit = Fruit()
+    pellets_eaten_count = 0
+    intro_timer = 0
+    muted = False
+    sound_manager = SoundManager(muted=muted)
+
     def reset_game():
-        nonlocal grid, pacman, blinky, pinky, inky, clyde, score, lives, frightened_timer, consecutive_ghosts_eaten, life_lost_timer, game_state
+        nonlocal grid, pacman, blinky, pinky, inky, clyde, score, lives, frightened_timer, consecutive_ghosts_eaten, life_lost_timer, game_state, ghost_states
+        nonlocal fruit, pellets_eaten_count, intro_timer
         grid = load_maze()
         pacman = PacMan(grid)
         blinky = BlinkyGhost(grid, COLOR_GHOST_RED, start_tile=(14, 13), release_delay=0)
         pinky = PinkyGhost(grid, COLOR_GHOST_PINK, start_tile=(14, 12), release_delay=120)
         inky = InkyGhost(grid, COLOR_GHOST_CYAN, start_tile=(14, 14), release_delay=240)
         clyde = ClydeGhost(grid, COLOR_GHOST_ORANGE, start_tile=(14, 15), release_delay=360)
+        ghost_states = {"Blinky": True, "Pinky": True, "Inky": True, "Clyde": True}
         score = 0
         lives = 3
         frightened_timer = 0
         consecutive_ghosts_eaten = 0
         life_lost_timer = 0
         game_state = "PLAYING"
+        
+        # Reset fruit and play beginning jingle
+        fruit = Fruit()
+        pellets_eaten_count = 0
+        sound_manager.play("beginning", "beginning")
+        intro_timer = int(sound_manager.sounds["beginning"].get_length() * 60) + 10
 
+    # Call reset_game once at startup to initialize everything and play intro
+    reset_game()
+
+    show_fps = False  # Set to True for performance debugging
     running = True
     panel_open = False
     while running:
@@ -216,6 +244,10 @@ def main():
                         # Check play/pause button (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30, y: 10 <= vy <= 38)
                         if (VIRTUAL_WIDTH - 64 <= vx <= VIRTUAL_WIDTH - 30) and (10 <= vy <= 38):
                             panel_open = not panel_open
+                        # Check speaker mute button (VIRTUAL_WIDTH - 28 <= vx <= VIRTUAL_WIDTH - 4, y: 10 <= vy <= 38)
+                        elif (VIRTUAL_WIDTH - 28 <= vx <= VIRTUAL_WIDTH - 4) and (10 <= vy <= 38):
+                            muted = not muted
+                            sound_manager.set_mute(muted)
                             
                         # Check row clicks if panel open
                         elif panel_open:
@@ -271,13 +303,39 @@ def main():
 
         # Update states if panel is closed (not paused) and playing
         if not panel_open and game_state == "PLAYING":
-            if life_lost_timer > 0:
+            if intro_timer > 0:
+                intro_timer -= 1
+            elif life_lost_timer > 0:
                 life_lost_timer -= 1
             else:
+                # Update background siren sound loop
+                sound_manager.play_siren("frightened" if frightened_timer > 0 else "normal")
+                
+                # Update Fruit active timer
+                fruit.update()
+                
                 # Update Pac-Man state and handle pellet consumption
                 score_gain, power_pellet_eaten = pacman.update()
-                score += score_gain
-                high_score = max(high_score, score)
+                if score_gain > 0:
+                    score += score_gain
+                    high_score = max(high_score, score)
+                    
+                    # Play pellet chomp sound
+                    sound_manager.play("chomp")
+                    
+                    # Track pellets eaten for fruit spawn (e.g. 70 pellets)
+                    if not fruit.active:
+                        pellets_eaten_count += 1
+                        if pellets_eaten_count == 70:
+                            fruit.spawn()
+                            pellets_eaten_count = 0
+                            
+                # Check collision with fruit
+                if fruit.active and pacman.row == fruit.row and pacman.col == fruit.col:
+                    fruit.active = False
+                    score += 100
+                    high_score = max(high_score, score)
+                    sound_manager.play("eatfruit")
 
                 if power_pellet_eaten:
                     frightened_timer = 420  # 7 seconds
@@ -315,9 +373,21 @@ def main():
                 # Check collision between Pac-Man and any active ghosts
                 collision_ghost = None
                 for g_name, g in [("Blinky", blinky), ("Pinky", pinky), ("Inky", inky), ("Clyde", clyde)]:
-                    if ghost_states[g_name] and g.row == pacman.row and g.col == pacman.col:
-                        collision_ghost = g
-                        break
+                    if ghost_states[g_name]:
+                        # Grid coordinate match
+                        grid_match = (g.row == pacman.row and g.col == pacman.col)
+                        
+                        # Pixel proximity check fallback (within TILE_SIZE / 2.0 = 12 pixels, accounting for tunnel wrapping)
+                        dx = pacman.pixel_x - g.pixel_x
+                        if abs(dx) > (VIRTUAL_WIDTH / 2.0):
+                            dx = VIRTUAL_WIDTH - abs(dx)
+                        dy = pacman.pixel_y - g.pixel_y
+                        pixel_dist = math.hypot(dx, dy)
+                        pixel_match = (pixel_dist < (TILE_SIZE / 2.0))
+                        
+                        if grid_match or pixel_match:
+                            collision_ghost = g
+                            break
 
                 if collision_ghost:
                     if collision_ghost.state == "frightened":
@@ -328,35 +398,47 @@ def main():
                         score += points
                         high_score = max(high_score, score)
                         collision_ghost.reset()
+                        sound_manager.play("eatghost")
                     else:
                         # Collision with normal ghost -> lose life
                         lives -= 1
+                        sound_manager.play("death")
                         if lives <= 0:
                             game_state = "GAME_OVER"
+                            sound_manager.play("gameover")
                         else:
                             pacman.reset()
                             blinky.reset()
                             pinky.reset()
                             inky.reset()
                             clyde.reset()
+                            frightened_timer = 0
                             life_lost_timer = 120  # 2 second pause
 
                 # Check win condition: total remaining pellets
                 pellets_remaining = sum(1 for r in range(len(grid)) for c in range(len(grid[0])) if grid[r][c] in (2, 4))
                 if pellets_remaining == 0:
                     game_state = "WIN"
+                    sound_manager.play("win")
+
+        # Stop background siren if game is paused, won/lost, or in intro/death freeze
+        if panel_open or game_state != "PLAYING" or intro_timer > 0 or life_lost_timer > 0:
+            sound_manager.stop_siren()
 
         # Clear Virtual Buffer
         virtual_surface.fill(COLOR_BACKGROUND)
 
         # 1. Render Top Arcade HUD
-        render_hud(virtual_surface, retro_font, current_score=score, high_score=high_score, lives=lives)
+        render_hud(virtual_surface, retro_font, current_score=score, high_score=high_score, lives=lives, show_fps=show_fps, clock=clock, muted=muted)
 
         # 2. Render Arcade Maze Layout
         render_maze(virtual_surface, grid)
 
         # 3. Render Pac-Man
         pacman.draw(virtual_surface, HUD_HEIGHT)
+
+        # 3b. Render Cherry Fruit
+        fruit.draw(virtual_surface, TILE_SIZE, HUD_HEIGHT)
 
         # 4. Render Ghosts
         if ghost_states["Blinky"]:
@@ -410,8 +492,8 @@ def main():
             restart_rect = restart_surf.get_rect(center=(VIRTUAL_WIDTH // 2, overlay_y + 110))
             virtual_surface.blit(restart_surf, restart_rect)
 
-        # Check if we should capture a screenshot when frightened mode is active
-        if game_state == "PLAYING" and frightened_timer == 360:
+        # Check if we should capture a screenshot when frightened mode is active or when fruit is active
+        if game_state == "PLAYING" and (frightened_timer == 360 or (fruit.active and fruit.timer == 590)):
             screenshot_path = "/home/devpanchal/.gemini/antigravity-ide/brain/2ad02e09-a2a2-4187-bc2e-a766401a4297/gameplay_screenshot.png"
             pygame.image.save(virtual_surface, screenshot_path)
             print(f"Captured screenshot to {screenshot_path}")
