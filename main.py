@@ -3,10 +3,11 @@ import sys
 import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
-    COLOR_HUD_TEXT, HUD_HEIGHT
+    COLOR_HUD_TEXT, HUD_HEIGHT, COLOR_GHOST_RED
 )
 from maze import load_maze, render_maze
 from pacman import PacMan
+from ghosts import BlinkyGhost
 
 def render_hud(surface, font, current_score=70, high_score=1920):
     """
@@ -85,6 +86,7 @@ def main():
     clock = pygame.time.Clock()
     grid = load_maze()
     pacman = PacMan(grid)
+    blinky = BlinkyGhost(grid, COLOR_GHOST_RED)
     score = 0
     high_score = 1920
 
@@ -122,6 +124,13 @@ def main():
         score += score_gain
         high_score = max(high_score, score)
 
+        # Update Blinky Ghost AI and chase targeting
+        blinky.update((pacman.row, pacman.col))
+
+        # Check collision between Pac-Man and Blinky
+        if blinky.row == pacman.row and blinky.col == pacman.col:
+            print("Pac-Man caught!")
+
         # Clear Virtual Buffer
         virtual_surface.fill(COLOR_BACKGROUND)
 
@@ -133,6 +142,9 @@ def main():
 
         # 3. Render Pac-Man
         pacman.draw(virtual_surface, HUD_HEIGHT)
+
+        # 4. Render Ghosts
+        blinky.draw(virtual_surface, HUD_HEIGHT)
 
         # 3. Dynamic Aspect-Ratio Scaling to Fit Window Screen
         win_w, win_h = screen.get_size()
