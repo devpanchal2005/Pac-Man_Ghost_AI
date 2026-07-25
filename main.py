@@ -126,9 +126,13 @@ def main():
     panel_desc_font = pygame.font.SysFont("monospace", 12, bold=False)
     panel_bold_font = pygame.font.SysFont("monospace", 14, bold=True)
 
-    # Create fullscreen window by default
-    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-    pygame.display.set_caption("Pac-Man Ghost AI - Arcade Renderer")
+    screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
+    pygame.display.set_caption("Pac-Man Ghost AI")
+
+    # Maximize the window using SDL2 window wrapper
+    from pygame._sdl2.video import Window
+    sdl_window = Window.from_display_module()
+    sdl_window.maximize()
 
     # Create fixed logical virtual canvas buffer
     virtual_surface = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
@@ -150,7 +154,6 @@ def main():
     high_score = 1920
 
     running = True
-    fullscreen = True
     panel_open = False
     while running:
         # Handle Events
@@ -161,11 +164,11 @@ def main():
                 if event.button == 1:  # Left click
                     mx, my = event.pos
                     
-                    # Convert to virtual coordinates
-                    win_w, win_h = screen.get_size()
-                    scale = min(win_w / VIRTUAL_WIDTH, win_h / VIRTUAL_HEIGHT)
-                    offset_x = (win_w - max(1, int(VIRTUAL_WIDTH * scale))) // 2
-                    offset_y = (win_h - max(1, int(VIRTUAL_HEIGHT * scale))) // 2
+                    # Convert to virtual coordinates using aspect scaling
+                    curr_w, curr_h = screen.get_size()
+                    scale = min(curr_w / VIRTUAL_WIDTH, curr_h / VIRTUAL_HEIGHT)
+                    offset_x = (curr_w - max(1, int(VIRTUAL_WIDTH * scale))) // 2
+                    offset_y = (curr_h - max(1, int(VIRTUAL_HEIGHT * scale))) // 2
                     
                     vx = (mx - offset_x) / scale
                     vy = (my - offset_y) / scale
@@ -195,13 +198,6 @@ def main():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     panel_open = not panel_open
-                elif event.key == pygame.K_f or event.key == pygame.K_F11:
-                    # Toggle Fullscreen Mode
-                    fullscreen = not fullscreen
-                    if fullscreen:
-                        screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.RESIZABLE)
-                    else:
-                        screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
                 
                 # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
                 elif panel_open:
@@ -298,20 +294,20 @@ def main():
 
             render_ghost_control_panel(virtual_surface, retro_font, panel_desc_font, panel_bold_font, ghost_states)
 
-        # 3. Dynamic Aspect-Ratio Scaling to Fit Window Screen
-        win_w, win_h = screen.get_size()
-        scale = min(win_w / VIRTUAL_WIDTH, win_h / VIRTUAL_HEIGHT)
+        # Dynamic Aspect-Ratio Scaling to Fit Window Screen (keeps retro aspect ratio)
+        curr_w, curr_h = screen.get_size()
+        scale = min(curr_w / VIRTUAL_WIDTH, curr_h / VIRTUAL_HEIGHT)
 
         scaled_w = max(1, int(VIRTUAL_WIDTH * scale))
         scaled_h = max(1, int(VIRTUAL_HEIGHT * scale))
 
-        offset_x = (win_w - scaled_w) // 2
-        offset_y = (win_h - scaled_h) // 2
+        offset_x = (curr_w - scaled_w) // 2
+        offset_y = (curr_h - scaled_h) // 2
 
         # Scale virtual surface to calculated dimensions
         scaled_surface = pygame.transform.smoothscale(virtual_surface, (scaled_w, scaled_h))
 
-        # Clear physical screen with pure black and blit centered scaled canvas
+        # Clear screen and blit centered scaled canvas
         screen.fill(COLOR_BACKGROUND)
         screen.blit(scaled_surface, (offset_x, offset_y))
 
