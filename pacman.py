@@ -9,20 +9,17 @@ def draw_pacman(surface, color, center, radius, direction_name, mouth_open_angle
     center: (x, y) pixel coordinates.
     radius: Pac-Man's radius.
     direction_name: "UP", "DOWN", "LEFT", "RIGHT".
-    mouth_open_angle: the total angle of the mouth opening in radians (e.g. 0 to 0.8 radians).
+    mouth_open_angle: the total angle of the mouth opening in radians.
     """
     x, y = center
     if mouth_open_angle <= 0.05:
         # Draw a full circle if the mouth is closed or almost closed
         pygame.draw.circle(surface, color, (int(x), int(y)), int(radius))
+        # Draw a thin black outline
+        pygame.draw.circle(surface, (0, 0, 0), (int(x), int(y)), int(radius), 1)
         return
 
     # Determine base rotation angle based on direction
-    # In Pygame screen space, Y grows downwards, so:
-    # Right: 0 degrees (towards positive X)
-    # Down: 90 degrees (towards positive Y)
-    # Left: 180 degrees (towards negative X)
-    # Up: 270 degrees (towards negative Y)
     if direction_name == "RIGHT":
         base_angle = 0.0
     elif direction_name == "DOWN":
@@ -35,9 +32,6 @@ def draw_pacman(surface, color, center, radius, direction_name, mouth_open_angle
         base_angle = 0.0
 
     # Start angle and end angle of the mouth wedge (relative to base_angle)
-    # The mouth is open from base_angle - mouth_open_angle/2 to base_angle + mouth_open_angle/2.
-    # Therefore, the solid body of Pac-Man goes from:
-    # base_angle + mouth_open_angle/2 to base_angle + 2*pi - mouth_open_angle/2
     start_angle = base_angle + mouth_open_angle / 2.0
     end_angle = base_angle + 2.0 * math.pi - mouth_open_angle / 2.0
 
@@ -50,8 +44,10 @@ def draw_pacman(surface, color, center, radius, direction_name, mouth_open_angle
         py = y + radius * math.sin(angle)
         points.append((px, py))
 
-    # Draw the polygon
+    # Draw the filled polygon
     pygame.draw.polygon(surface, color, points)
+    # Draw a thin black outline (1px) around it
+    pygame.draw.polygon(surface, (0, 0, 0), points, 1)
 
 class PacMan:
     def __init__(self, grid):
@@ -238,11 +234,12 @@ class PacMan:
         center_x = self.pixel_x + TILE_SIZE / 2.0
         center_y = self.pixel_y + TILE_SIZE / 2.0 + y_offset
         
-        radius = TILE_SIZE / 2.0 - 1.0  # Slightly smaller than the tile for clean styling
+        # Fill about 80-85% of a tile's diameter (24 * 0.42 = 10.08, ~10 pixels radius)
+        radius = TILE_SIZE * 0.42
         
-        # Calculate chomp opening angle (cycles between 0 and ~45 degrees / 0.8 radians)
+        # Calculate chomp opening angle (cycles between 0 and ~70 degrees / 1.2 radians for a readable V)
         mouth_openness = abs(math.sin(self.chomp_time * 0.15))
-        mouth_angle = mouth_openness * 0.8
+        mouth_angle = mouth_openness * 1.2
         
         facing = self.current_dir if self.current_dir else self.last_dir
         

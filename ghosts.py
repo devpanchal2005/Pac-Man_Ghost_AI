@@ -100,24 +100,34 @@ def draw_ghost(surface, color, center, radius, direction_name):
         py = y + radius * math.sin(angle)
         points.append((px, py))
         
-    # Wavy bottom from right to left (adds scallops pointing down)
-    num_bottom_points = 12
-    wave_amp = radius * 0.25
-    right_x = x + radius
-    for i in range(num_bottom_points + 1):
-        t = i / num_bottom_points
-        px = right_x - (radius * 2.0) * t
-        py = y + radius - abs(math.sin(t * 3.0 * math.pi)) * wave_amp
-        points.append((px, py))
+    # Scalloped bottom from right to left (creates 3 prominent rounded feet pointing down)
+    num_scallops = 3
+    scallop_width = (radius * 2.0) / num_scallops
+    wave_amp = radius * 0.35  # Prominent waves
+    
+    for s in range(num_scallops):
+        x_start = x + radius - s * scallop_width
+        x_end = x + radius - (s + 1) * scallop_width
         
+        num_seg = 8
+        for j in range(num_seg + 1):
+            t = j / num_seg
+            px = x_start + (x_end - x_start) * t
+            # Rounded bump pointing down
+            py = y + radius - wave_amp + math.sin(t * math.pi) * wave_amp
+            points.append((px, py))
+            
+    # Draw solid filled body
     pygame.draw.polygon(surface, color, points)
+    # Draw a thin black outline for contrast
+    pygame.draw.polygon(surface, (0, 0, 0), points, 1)
     
     # 2. Eyes
     dx_eye, dy_eye = 0, 0
     dx_pupil, dy_pupil = 0, 0
     
-    eye_shift = radius * 0.12
-    pupil_shift = radius * 0.22
+    eye_shift = radius * 0.15
+    pupil_shift = radius * 0.2
     
     if direction_name == "LEFT":
         dx_eye = -eye_shift
@@ -138,9 +148,9 @@ def draw_ghost(surface, color, center, radius, direction_name):
     right_eye_x = x + radius * 0.35 + dx_eye
     right_eye_y = y - radius * 0.15 + dy_eye
     
-    # Ellipse proportions for retro eyes
-    eye_w = radius * 0.32
-    eye_h = radius * 0.4
+    # White sclera (larger and prominent: 32% radius to 65% radius)
+    eye_w = radius * 0.65
+    eye_h = radius * 0.75
     
     left_rect = pygame.Rect(left_eye_x - eye_w / 2.0, left_eye_y - eye_h / 2.0, eye_w, eye_h)
     right_rect = pygame.Rect(right_eye_x - eye_w / 2.0, right_eye_y - eye_h / 2.0, eye_w, eye_h)
@@ -148,14 +158,14 @@ def draw_ghost(surface, color, center, radius, direction_name):
     pygame.draw.ellipse(surface, (255, 255, 255), left_rect)
     pygame.draw.ellipse(surface, (255, 255, 255), right_rect)
     
-    # Blue pupils
+    # Blue pupils (larger for high contrast)
     pupil_color = (0, 0, 255)
-    pupil_radius = radius * 0.14
+    pupil_radius = radius * 0.22
     
-    left_pupil_x = left_eye_x + dx_pupil * 0.5
-    left_pupil_y = left_eye_y + dy_pupil * 0.5
-    right_pupil_x = right_eye_x + dx_pupil * 0.5
-    right_pupil_y = right_eye_y + dy_pupil * 0.5
+    left_pupil_x = left_eye_x + dx_pupil
+    left_pupil_y = left_eye_y + dy_pupil
+    right_pupil_x = right_eye_x + dx_pupil
+    right_pupil_y = right_eye_y + dy_pupil
     
     pygame.draw.circle(surface, pupil_color, (int(left_pupil_x), int(left_pupil_y)), int(pupil_radius))
     pygame.draw.circle(surface, pupil_color, (int(right_pupil_x), int(right_pupil_y)), int(pupil_radius))
@@ -295,7 +305,8 @@ class Ghost:
     def draw(self, surface, y_offset):
         center_x = self.pixel_x + TILE_SIZE / 2.0
         center_y = self.pixel_y + TILE_SIZE / 2.0 + y_offset
-        radius = TILE_SIZE / 2.0 - 1.0
+        # Set radius to fill 80-85% of a tile's diameter (24 * 0.42 = 10.08, ~10 pixels radius)
+        radius = TILE_SIZE * 0.42
         draw_ghost(surface, self.color, (center_x, center_y), radius, self.current_dir)
 
 class BlinkyGhost(Ghost):
