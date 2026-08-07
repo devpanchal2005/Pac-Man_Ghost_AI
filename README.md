@@ -1,7 +1,8 @@
 # Pac-Man Ghost AI
 A classic Pac-Man clone built to demonstrate classical AI search algorithms through four distinct ghost personalities.
-
-![Pac-Man Ghost AI Demo](https://media.giphy.com/media/hkqefnFjn2MWVl6xvq/giphy.gif)
+<p align="center">
+  <img src="https://media.giphy.com/media/hkqefnFjn2MWVl6xvq/giphy.gif" alt="Pac-Man Ghost AI Demo" />
+</p>
 
 ## Features
 - **Arcade-Style Maze Rendering**: A double-stroke neon-blue corridor wall layout rendering system with corner truncation for crisp visual joints.
