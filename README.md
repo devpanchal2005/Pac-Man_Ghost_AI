@@ -1,5 +1,12 @@
 # Pac-Man Ghost AI
 A classic Pac-Man clone built to demonstrate classical AI search algorithms through four distinct ghost personalities.
+
+<p align="center">
+  <a href="https://devpanchal2005.github.io/Pac-Man_Ghost_AI/"><b>▶ Play it in your browser</b></a>
+  &nbsp;·&nbsp;
+  <a href="docs/Pac-Man_Ghost_AI.pptx">Project presentation (.pptx)</a>
+</p>
+
 <p align="center">
   <img src="https://media.giphy.com/media/hkqefnFjn2MWVl6xvq/giphy.gif" alt="Pac-Man Ghost AI Demo" />
 </p>
@@ -11,8 +18,9 @@ A classic Pac-Man clone built to demonstrate classical AI search algorithms thro
 - **Power Pellets & Frightened Mode**: Power Pellets trigger Frightened Mode, changing ghost states, altering colors (with a warning flash indicator), and doubling consecutive points.
 - **Win/Lose Logic**: Pellet eating counts down to a victory win overlay. A 3-lives HUD system handles collision resets and Game Over screens.
 - **In-Game Ghost Control Panel**: An overlay panel allowing users to toggle individual ghost states ON/OFF during gameplay to study specific behaviors.
-- **Hybrid Audio System**: Coexistence of file-based retro sound effects (`.wav` format) alongside procedurally generated sine/triangle wave loops and jingles.
+- **Hybrid Audio System**: Coexistence of file-based retro sound effects (`.ogg` format) alongside procedurally generated sine/triangle wave loops and jingles.
 - **Cherry Bonus Item**: A visually distinct cherry item that spawns at a fixed corridor after a set number of pellets are eaten, providing score boosts.
+- **Runs in the Browser**: The same Python code is compiled to WebAssembly with [pygbag](https://pypi.org/project/pygbag/) and deployed automatically to GitHub Pages, so no install is needed to play.
 
 ---
 
@@ -42,32 +50,44 @@ Each ghost implements a distinct target-tile selection algorithm. Once a target 
 ## Tech Stack
 - **Language**: Python 3
 - **Graphics Engine**: [Pygame Community Edition](https://pyga.me/) (pygame-ce 2.5.7)
-- **Standard Libraries**: `math`, `heapq` (for A* priority queues), `array` (for procedural sound buffers), `os`, `sys`, and `random`.
+- **Standard Libraries**: `asyncio` (browser-compatible game loop), `math`, `heapq` (for A* priority queues), `array` (for procedural sound buffers), `os`, `sys`, and `random`.
+- **Web Build**: [pygbag](https://pypi.org/project/pygbag/) 0.9.3 (Python → WebAssembly)
+- **Hosting / CI**: GitHub Pages, deployed by GitHub Actions
 
 ---
 
 ## Project Structure
 ```text
 .
-├── audio.py        # SoundManager class loading WAVs, synthesizing procedural beeps/loops, and routing audio
-├── constants.py    # Configuration constants (resolutions, grid properties, retro colors, and timing parameters)
-├── fruit.py        # Fruit class handles spawning, timing, and drawing the cherry bonus item
-├── ghosts.py       # A* algorithm implementation and base/individual subclasses for Blinky, Pinky, Inky, and Clyde
-├── main.py         # Main execution entrypoint, Pygame setup, events loop, collision handlers, and HUD rendering
-├── maze.py         # Classic Pac-Man maze grid layout definition, connectivity checks, and neon-blue tube wall drawing
-├── pacman.py       # Pac-Man coordinate tracking, direction queue handling, movement, and wedge-mouth animations
-├── requirements.txt# Project dependency requirements definition
-└── LICENSE.txt     # MIT license file
+├── .github/workflows/
+│   └── deploy.yml   # GitHub Actions: builds with pygbag and deploys build/web to the gh-pages branch
+├── docs/
+│   └── Pac-Man_Ghost_AI.pptx  # Project presentation (kept out of the web bundle)
+├── sounds/          # Sound effects (.ogg)
+├── audio.py         # SoundManager class loading OGG sounds, synthesizing procedural beeps/loops, and routing audio
+├── constants.py     # Configuration constants (resolutions, grid properties, retro colors, and timing parameters)
+├── fruit.py         # Fruit class handles spawning, timing, and drawing the cherry bonus item
+├── ghosts.py        # A* algorithm implementation and base/individual subclasses for Blinky, Pinky, Inky, and Clyde
+├── main.py          # Async entrypoint, Pygame setup, events loop, collision handlers, and HUD rendering
+├── maze.py          # Classic Pac-Man maze grid layout definition, connectivity checks, and neon-blue tube wall drawing
+├── pacman.py        # Pac-Man coordinate tracking, direction queue handling, movement, and wedge-mouth animations
+├── favicon.png      # Browser tab icon for the web build
+├── pygbag.ini       # pygbag config: folders/files excluded from the web bundle
+├── pygbag.tmpl      # Custom pygbag HTML template (black page background)
+├── requirements.txt # Project dependency requirements definition
+└── LICENSE.txt      # MIT license file
 ```
 
 ---
 
 ## Setup & Running Instructions
 
+> **Just want to play?** Open **[devpanchal2005.github.io/Pac-Man_Ghost_AI](https://devpanchal2005.github.io/Pac-Man_Ghost_AI/)** and click the page once to start. The steps below are for running it locally.
+
 ### 1. Clone the Repository
 Clone this repository to your local system:
 ```bash
-git clone <repository_url>
+git clone https://github.com/devpanchal2005/Pac-Man_Ghost_AI.git
 cd Pac-Man_Ghost_AI
 ```
 
@@ -100,6 +120,29 @@ Execute the python script from the virtual environment:
 ```bash
 python main.py
 ```
+
+---
+
+## Web Build & Deployment
+
+The game runs in the browser via [pygbag](https://pypi.org/project/pygbag/), which packages the Python code and assets and runs them on a WebAssembly build of CPython.
+
+### Build and test locally
+```bash
+pip install pygbag==0.9.3
+pygbag --template pygbag.tmpl .          # builds and serves at http://localhost:8000
+pygbag --build --template pygbag.tmpl .  # build only; output goes to build/web
+```
+
+### Automatic deployment
+Every push to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml), which builds the game with pygbag and publishes `build/web` to the `gh-pages` branch. GitHub Pages serves that branch at [devpanchal2005.github.io/Pac-Man_Ghost_AI](https://devpanchal2005.github.io/Pac-Man_Ghost_AI/) (one-time setup: **Settings → Pages → Source: Deploy from a branch → `gh-pages`**).
+
+### Web-specific notes
+- `main()` is `async` and yields to the browser once per frame (`await asyncio.sleep(0)`), which pygbag requires.
+- In the browser the game renders to a 2× framebuffer with nearest-neighbour scaling to keep pixels sharp; the desktop build is unchanged.
+- Sounds are `.ogg`, because pygbag does not allow `.wav`/`.mp3` on the web.
+- Browsers block audio until you interact with the page, so the game starts after the first click.
+- `pygbag.tmpl` is a copy of pygbag 0.9.3's default template with a black background. If you upgrade pygbag, re-copy the new default template and reapply that change.
 
 ---
 
