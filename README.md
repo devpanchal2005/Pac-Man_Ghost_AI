@@ -3,8 +3,6 @@ A classic Pac-Man clone built to demonstrate classical AI search algorithms thro
 
 <p align="center">
   <a href="https://devpanchal2005.github.io/Pac-Man_Ghost_AI/"><b>▶ Play it in your browser</b></a>
-  &nbsp;·&nbsp;
-  <a href="docs/Pac-Man_Ghost_AI.pptx">Project presentation (.pptx)</a>
 </p>
 
 <p align="center">
@@ -61,8 +59,6 @@ Each ghost implements a distinct target-tile selection algorithm. Once a target 
 .
 ├── .github/workflows/
 │   └── deploy.yml   # GitHub Actions: builds with pygbag and deploys build/web to the gh-pages branch
-├── docs/
-│   └── Pac-Man_Ghost_AI.pptx  # Project presentation (kept out of the web bundle)
 ├── sounds/          # Sound effects (.ogg)
 ├── audio.py         # SoundManager class loading OGG sounds, synthesizing procedural beeps/loops, and routing audio
 ├── constants.py     # Configuration constants (resolutions, grid properties, retro colors, and timing parameters)
