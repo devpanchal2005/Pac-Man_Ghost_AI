@@ -467,6 +467,7 @@ class BlinkyGhost(Ghost):
     def get_target_tile(self, pacman_pos, pacman_dir, blinky_pos):
         return pacman_pos
 
+
     def get_next_move(self, grid, start_tile, target_tile):
         return a_star(start_tile, target_tile, self.state, grid)
 

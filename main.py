@@ -1,4 +1,4 @@
-import sys
+import asyncio
 import math
 import pygame
 from constants import (
@@ -141,7 +141,7 @@ def render_ghost_control_panel(surface, font, panel_font, bold_font, ghost_state
         status_rect = status_surf.get_rect(center=(panel_x + panel_w - 45, row_y + 24))
         surface.blit(status_surf, status_rect)
 
-def main():
+async def main():
     # Initialize Pygame and Font system
     pygame.init()
     pygame.font.init()
@@ -155,9 +155,12 @@ def main():
     pygame.display.set_caption("Pac-Man Ghost AI")
 
     # Maximize the window using SDL2 window wrapper
-    from pygame._sdl2.video import Window
-    sdl_window = Window.from_display_module()
-    sdl_window.maximize()
+    try:
+        from pygame._sdl2.video import Window
+        sdl_window = Window.from_display_module()
+        sdl_window.maximize()
+    except Exception:
+        pass
 
     # Create fixed logical virtual canvas buffer
     virtual_surface = pygame.Surface((VIRTUAL_WIDTH, VIRTUAL_HEIGHT))
@@ -272,9 +275,12 @@ def main():
                         panel_open = not panel_open
                     elif event.key == pygame.K_F12:
                         screenshot_path = "/home/devpanchal/.gemini/antigravity-ide/brain/2ad02e09-a2a2-4187-bc2e-a766401a4297/gameplay_screenshot.png"
-                        pygame.image.save(virtual_surface, screenshot_path)
-                        print(f"Captured screenshot to {screenshot_path}")
-                    
+                        try:
+                            pygame.image.save(virtual_surface, screenshot_path)
+                            print(f"Captured screenshot to {screenshot_path}")
+                        except Exception:
+                            pass
+
                     # Keyboard 1-4 or Numpad 1-4 ghost toggles if panel open
                     elif panel_open:
                         if event.key in (pygame.K_1, pygame.K_KP1):
@@ -495,8 +501,11 @@ def main():
         # Check if we should capture a screenshot when frightened mode is active or when fruit is active
         if game_state == "PLAYING" and (frightened_timer == 360 or (fruit.active and fruit.timer == 590)):
             screenshot_path = "/home/devpanchal/.gemini/antigravity-ide/brain/2ad02e09-a2a2-4187-bc2e-a766401a4297/gameplay_screenshot.png"
-            pygame.image.save(virtual_surface, screenshot_path)
-            print(f"Captured screenshot to {screenshot_path}")
+            try:
+                pygame.image.save(virtual_surface, screenshot_path)
+                print(f"Captured screenshot to {screenshot_path}")
+            except Exception:
+                pass
 
         # Dynamic Aspect-Ratio Scaling to Fit Window Screen (keeps retro aspect ratio)
         curr_w, curr_h = screen.get_size()
@@ -520,9 +529,9 @@ def main():
 
         # Cap Frame Rate at 60 FPS
         clock.tick(FPS)
+        await asyncio.sleep(0)
 
     pygame.quit()
-    sys.exit()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

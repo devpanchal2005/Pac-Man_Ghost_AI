@@ -22,11 +22,11 @@ class SoundManager:
         # Load file-based sounds from sounds/ directory
         sounds_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sounds")
         file_mappings = {
-            "beginning": "pacman_beginning.wav",
-            "chomp": "pacman_chomp.wav",
-            "death": "pacman_death.wav",
-            "eatfruit": "pacman_eatfruit.wav",
-            "eatghost": "pacman_eatghost.wav"
+            "beginning": "pacman_beginning.ogg",
+            "chomp": "pacman_chomp.ogg",
+            "death": "pacman_death.ogg",
+            "eatfruit": "pacman_eatfruit.ogg",
+            "eatghost": "pacman_eatghost.ogg"
         }
         
         for name, filename in file_mappings.items():
