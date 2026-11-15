@@ -1,5 +1,6 @@
 import asyncio
 import math
+import sys
 import pygame
 from constants import (
     VIRTUAL_WIDTH, VIRTUAL_HEIGHT, FPS, COLOR_BACKGROUND,
@@ -11,6 +12,12 @@ from pacman import PacMan, draw_pacman
 from ghosts import BlinkyGhost, PinkyGhost, InkyGhost, ClydeGhost, draw_ghost
 from fruit import Fruit
 from audio import SoundManager
+
+# In the browser the canvas is CSS-stretched to fit the page, which blurs a
+# 1x framebuffer. Render to a 2x framebuffer with nearest-neighbour scaling so
+# the browser only ever scales down.
+IS_WEB = sys.platform == "emscripten"
+WEB_SCALE = 2
 
 def draw_hud_pacman_icon(surface, center, radius):
     draw_pacman(surface, (255, 255, 0), center, radius, "RIGHT", 1.2)
@@ -151,7 +158,10 @@ async def main():
     panel_desc_font = pygame.font.SysFont("monospace", 12, bold=False)
     panel_bold_font = pygame.font.SysFont("monospace", 14, bold=True)
 
-    screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
+    if IS_WEB:
+        screen = pygame.display.set_mode((VIRTUAL_WIDTH * WEB_SCALE, VIRTUAL_HEIGHT * WEB_SCALE))
+    else:
+        screen = pygame.display.set_mode((VIRTUAL_WIDTH, VIRTUAL_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption("Pac-Man Ghost AI")
 
     # Maximize the window using SDL2 window wrapper
@@ -518,7 +528,10 @@ async def main():
         offset_y = (curr_h - scaled_h) // 2
 
         # Scale virtual surface to calculated dimensions
-        scaled_surface = pygame.transform.smoothscale(virtual_surface, (scaled_w, scaled_h))
+        if IS_WEB:
+            scaled_surface = pygame.transform.scale(virtual_surface, (scaled_w, scaled_h))
+        else:
+            scaled_surface = pygame.transform.smoothscale(virtual_surface, (scaled_w, scaled_h))
 
         # Clear screen and blit centered scaled canvas
         screen.fill(COLOR_BACKGROUND)
